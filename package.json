@@ -16,13 +16,18 @@
     "lodash": "^4.17.21",
     "next": "14.2.15",
     "react": "^18",
+    "react-color": "^2.19.3",
     "react-d3-tree": "^3.6.2",
     "react-dom": "^18",
-    "react-tree-graph": "^8.0.2"
+    "react-select": "^5.8.3",
+    "react-tree-graph": "^8.0.2",
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
+    "@types/lodash": "^4.17.13",
     "@types/node": "^20",
     "@types/react": "^18",
+    "@types/react-color": "^3.0.12",
     "@types/react-dom": "^18",
     "@types/react-tree-graph": "^8.0.0",
     "postcss": "^8",

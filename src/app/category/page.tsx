@@ -57,13 +57,7 @@ const CategoryPage = () => {
     }, [categories, debouncedSaveCategories]);
 
     // Function to handle category submission from the form
-    const handleCategorySubmit = (newCategory: Category) => {
-        const category: Category = {
-            ...newCategory,
-            id: newCategory.id || Math.random().toString(36).substr(2, 9),
-            children: [],
-        };
-
+    const handleCategorySubmit = (category: Category) => {
         if (category.parentCategoryId) {
             setCategories((prevCategories) => addCategoryToParent(prevCategories, category));
         } else {
@@ -72,6 +66,7 @@ const CategoryPage = () => {
 
         setSelectedParentId(null);
     };
+
 
     // Function to handle clicking on a category in the tree
     const handleCategoryClick = (id: string) => {

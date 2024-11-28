@@ -1,44 +1,37 @@
 import React, { useState, useEffect } from 'react';
+import { Category } from '@/app/models/Category';
 
 interface CategoryFormProps {
-    onSubmit: (data: CategoryData) => void;
-    categories: CategoryData[];
+    onSubmit: (category: Category) => void;
+    categories: Category[];
     parentCategoryId?: string | null; // Optional parent category ID
-}
-
-interface CategoryData {
-    name: string;
-    description?: string;
-    id?: string;
-    parentCategoryId?: string;
-    relationships?: string[];
 }
 
 const CategoryForm: React.FC<CategoryFormProps> = ({ onSubmit, categories, parentCategoryId }) => {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [id, setId] = useState('');
     const [parent, setParent] = useState<string | undefined>(parentCategoryId || undefined);
 
     useEffect(() => {
-        // Update parent category whenever a new parent is clicked
         setParent(parentCategoryId || undefined);
     }, [parentCategoryId]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const categoryData: CategoryData = {
+        const newCategory: Category = {
+            id: Math.random().toString(36).substr(2, 9), // Generate unique ID
             name,
             description,
-            id: id || undefined,
-            parentCategoryId: parent || undefined,
+            parentCategoryId: parent || null,
+            children: [],
+            color: '#ffffff', // Default color
+            literature: [],
         };
 
-        onSubmit(categoryData);  // Submit form data to the parent component
-        setName('');  // Clear the form after submission
+        onSubmit(newCategory); // Submit the new Category object
+        setName('');
         setDescription('');
-        setId('');
     };
 
     return (

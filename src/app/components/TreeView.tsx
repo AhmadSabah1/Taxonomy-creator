@@ -1,5 +1,3 @@
-// TreeView.tsx
-
 'use client';
 
 import React, { useState } from 'react';
@@ -9,6 +7,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 import { Category } from '@/app/models/Category';
 import { Literature } from '@/app/models/Literature';
+import {deleteDoc, doc, setDoc, updateDoc} from 'firebase/firestore';
+import {db} from "../../../firebaseConfig";
 
 interface TreeViewProps {
     categories: Category[];
@@ -23,6 +23,7 @@ const convertToTreeData = (categories: Category[]): any[] => {
             id: category.id || 'Unknown ID',
             description: category.description || 'No description',
         },
+        color: category.color || '#ff6347', // Default color if not set
         children:
             category.children && category.children.length > 0
                 ? convertToTreeData(category.children)
@@ -54,7 +55,7 @@ const renderCustomNodeElement = ({
         <g>
             <circle
                 r={radius}
-                fill={isParent ? '#00f' : '#ff6347'}
+                fill={nodeDatum.color} // Use node's color
                 stroke="black"
                 strokeWidth="1"
                 onClick={handleClick}
@@ -110,9 +111,7 @@ const TreeView: React.FC<TreeViewProps> = ({
                                            }) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [modalDescription, setModalDescription] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-        null
-    );
+    const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [newLiterature, setNewLiterature] = useState<Literature>({
         title: '',
         author: '',
@@ -164,89 +163,214 @@ const TreeView: React.FC<TreeViewProps> = ({
         setModalVisible(false);
     };
 
-    const handleLiteratureChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-    ) => {
-        const { name, value } = e.target;
-        setNewLiterature((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const attachLiterature = () => {
-        if (selectedCategory && newLiterature.url && newLiterature.title) {
-            const updatedCategory = {
-                ...selectedCategory,
-                literature: [...(selectedCategory.literature || []), newLiterature],
-            };
-
-            const updateCategoryInTree = (
-                categories: Category[],
-                updatedCategory: Category
-            ): Category[] => {
-                return categories.map((category) => {
-                    if (category.id === updatedCategory.id) {
-                        return updatedCategory;
-                    } else if (category.children && category.children.length > 0) {
-                        return {
-                            ...category,
-                            children: updateCategoryInTree(
-                                category.children,
-                                updatedCategory
-                            ),
-                        };
-                    }
-                    return category;
-                });
-            };
-
-            const updatedCategories = updateCategoryInTree(categories, updatedCategory);
-
-            setCategories(updatedCategories);
-            setSelectedCategory(updatedCategory);
-            setNewLiterature({ title: '', author: '', date: '', url: '' });
-        }
-    };
-
-    const deleteCategory = () => {
-        if (selectedCategory) {
-            const confirmDelete = window.confirm(
-                `Are you sure you want to delete "${selectedCategory.name}" and all its subcategories?`
-            );
-            if (confirmDelete) {
-                const deleteCategoryFromTree = (
-                    categories: Category[],
-                    categoryId: string
-                ): Category[] => {
-                    return categories
-                        .filter((category) => category.id !== categoryId)
-                        .map((category) => ({
-                            ...category,
-                            children: category.children
-                                ? deleteCategoryFromTree(category.children, categoryId)
-                                : [],
-                        }));
+    const updateCategoryInTree = (
+        categories: Category[],
+        updatedCategory: Category
+    ): Category[] => {
+        return categories.map((category) => {
+            if (category.id === updatedCategory.id) {
+                return updatedCategory; // Update the matched category
+            } else if (category.children && category.children.length > 0) {
+                return {
+                    ...category,
+                    children: updateCategoryInTree(category.children, updatedCategory),
                 };
-
-                const updatedCategories = deleteCategoryFromTree(
-                    categories,
-                    selectedCategory.id
-                );
-                setCategories(updatedCategories);
-                setModalVisible(false);
             }
-        }
+            return category; // Return other categories as-is
+        });
     };
 
+    const updateCategory = async (updatedCategory: Category) => {
+        const updatedCategories = updateCategoryInTree(categories, updatedCategory);
+        setCategories(updatedCategories);
+
+        try {
+            const docRef = doc(db, 'categories', updatedCategory.id);
+            await setDoc(docRef, updatedCategory);
+        } catch (error) {
+            console.error('Error saving category:', error);
+        }
+    };
     const treeData = convertToTreeData(categories);
 
     if (!treeData || treeData.length === 0) {
         return <p>No categories to display</p>;
     }
 
+    const removeCategoryFromTree = (
+        categories: Category[],
+        categoryIdToRemove: string
+    ): Category[] => {
+        return categories
+            .filter((category) => category.id !== categoryIdToRemove)
+            .map((category) => ({
+                ...category,
+                children: category.children
+                    ? removeCategoryFromTree(category.children, categoryIdToRemove)
+                    : [],
+            }));
+    };
+    const deleteCategory = () => {
+        if (selectedCategory) {
+            const confirmDelete = window.confirm(
+                `Are you sure you want to delete "${selectedCategory.name}"?`
+            );
+
+            if (confirmDelete) {
+                const updatedCategories = removeCategoryFromTree(
+                    categories,
+                    selectedCategory.id
+                );
+
+                setCategories(updatedCategories);
+                setModalVisible(false);
+
+                // Optionally, delete the category from Firebase
+                try {
+                    const docRef = doc(db, 'categories', selectedCategory.id);
+                    deleteDoc(docRef); // Import and use `deleteDoc` from Firebase
+                } catch (error) {
+                    console.error('Error deleting category from Firebase:', error);
+                }
+            }
+        }
+    };
+
+    const attachLiterature = async () => {
+        if (!selectedCategory) return;
+
+        const updatedLiterature = [
+            ...(selectedCategory.literature || []),
+            newLiterature,
+        ];
+
+        const updatedCategory: Category = {
+            ...selectedCategory,
+            literature: updatedLiterature,
+        };
+
+        // Update the categories tree
+        const updatedCategories = updateCategoryInTree(categories, updatedCategory);
+
+        // Immediate state updates
+        setCategories(updatedCategories);
+        setSelectedCategory(updatedCategory);
+
+        // Save to Firebase asynchronously (without blocking UI updates)
+        try {
+            const docRef = doc(db, 'categories', updatedCategory.id);
+            await updateDoc(docRef, { literature: updatedLiterature });
+        } catch (error) {
+            console.error('Error updating literature in Firebase:', error);
+        }
+
+        // Reset the form
+        setNewLiterature({ title: '', author: '', date: '', url: '' });
+    };
+
+
+    async function addSelectedLiterature(literature: Literature) {
+        if (!selectedCategory) return;
+
+        const updatedLiterature = [
+            ...(selectedCategory.literature || []),
+            literature,
+        ];
+
+        const updatedCategory: Category = {
+            ...selectedCategory,
+            literature: updatedLiterature,
+        };
+
+        // Update the categories tree
+        const updatedCategories = updateCategoryInTree(categories, updatedCategory);
+
+        // Immediate state updates
+        setCategories(updatedCategories);
+        setSelectedCategory(updatedCategory);
+
+        // Save to Firebase asynchronously (without blocking UI updates)
+        try {
+            const docRef = doc(db, 'categories', updatedCategory.id);
+            await updateDoc(docRef, { literature: updatedLiterature });
+        } catch (error) {
+            console.error('Error updating literature in Firebase:', error);
+        }
+
+        // Reset the form
+        setNewLiterature({ title: '', author: '', date: '', url: '' });
+    }
+
+    const propagateColorToChildren = (
+        categories: Category[],
+        nodeId: string,
+        newColor: string
+    ): Category[] => {
+        return categories.map((category) => {
+            if (category.id === nodeId) {
+                // Update the node and propagate the color to its children
+                return {
+                    ...category,
+                    color: newColor,
+                    children: category.children
+                        ? propagateColorToChildren(category.children, nodeId, newColor)
+                        : [],
+                };
+            }
+
+            // Traverse the children of other nodes
+            if (category.children && category.children.length > 0) {
+                return {
+                    ...category,
+                    children: propagateColorToChildren(category.children, nodeId, newColor),
+                };
+            }
+
+            return category; // Return unchanged node
+        });
+    };
+
+    const handleUpdateCategoryColor = (color: string) => {
+        if (selectedCategory) {
+            const updatedCategories = propagateColorToChildren(categories, selectedCategory.id, color);
+            setCategories(updatedCategories);
+        }
+    };
+
+
+    function deleteLiterature(literatureToDelete: Literature) {
+        if (!selectedCategory) return;
+
+        // Filter out the selected literature
+        const updatedLiterature = (selectedCategory.literature || []).filter(
+            (lit) => lit.title !== literatureToDelete.title || lit.url !== literatureToDelete.url
+        );
+
+        // Create an updated category object
+        const updatedCategory: Category = {
+            ...selectedCategory,
+            literature: updatedLiterature,
+        };
+
+        // Update the category tree and state
+        const updatedCategories = updateCategoryInTree(categories, updatedCategory);
+        setCategories(updatedCategories);
+        setSelectedCategory(updatedCategory);
+
+        // Save the updated category to Firebase
+        try {
+            const docRef = doc(db, 'categories', updatedCategory.id);
+            updateDoc(docRef, { literature: updatedLiterature });
+        } catch (error) {
+            console.error('Error deleting literature from Firebase:', error);
+        }
+    }
+
     return (
         <div id="treeWrapper" className="w-full h-screen">
             <Tree
                 data={treeData}
-                orientation="radial"
+                orientation='horizontal'
                 translate={{ x: 500, y: 300 }}
                 renderCustomNodeElement={({ nodeDatum, toggleNode }) =>
                     renderCustomNodeElement({
@@ -257,20 +381,6 @@ const TreeView: React.FC<TreeViewProps> = ({
                     })
                 }
                 collapsible={true}
-                styles={{
-                    nodes: {
-                        node: {
-                            circle: {
-                                stroke: '#00f',
-                                strokeWidth: 2,
-                            },
-                            name: {
-                                stroke: '#333',
-                                strokeWidth: 2,
-                            },
-                        },
-                    },
-                }}
             />
             <Modal
                 isVisible={modalVisible}
@@ -278,9 +388,17 @@ const TreeView: React.FC<TreeViewProps> = ({
                 category={selectedCategory}
                 description={modalDescription}
                 newLiterature={newLiterature}
-                handleLiteratureChange={handleLiteratureChange}
+                handleLiteratureChange={(e) => {
+                    const { name, value } = e.target;
+                    setNewLiterature((prev) => ({ ...prev, [name]: value }));
+                }}
                 attachLiterature={attachLiterature}
                 deleteCategory={deleteCategory}
+                categories={categories}
+                updateCategory={updateCategory}
+                attachLiteratureFromList={literature => addSelectedLiterature(literature)}
+                deleteLiterature={deleteLiterature}
+                updateCategoryColor={handleUpdateCategoryColor}
             />
         </div>
     );
