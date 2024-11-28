@@ -370,7 +370,7 @@ const TreeView: React.FC<TreeViewProps> = ({
         <div id="treeWrapper" className="w-full h-screen">
             <Tree
                 data={treeData}
-                orientation='horizontal'
+                orientation='vertical'
                 translate={{ x: 500, y: 300 }}
                 renderCustomNodeElement={({ nodeDatum, toggleNode }) =>
                     renderCustomNodeElement({
