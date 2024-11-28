@@ -25,3 +25,19 @@ body {
     text-wrap: balance;
   }
 }
+
+.custom-tree {
+  stroke: #00f;
+  fill: #fff;
+}
+
+.custom-tree text {
+  font-size: 12px;
+  fill: #333;
+}
+
+.custom-tree circle {
+  stroke: #00f;
+  fill: #00f;
+}
+
