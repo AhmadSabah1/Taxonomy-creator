@@ -1,11 +1,10 @@
-import {Literature} from "@/app/models/Literature";
-
+// models/Category.ts
 export interface Category {
     id: string;
     name: string;
-    description: string;
-    literature?: Literature[];
-    parentCategoryId?: string | null;
-    children?: Category[];
+    description?: string;
     color?: string;
+    children?: Category[];
+    parentCategoryId?: string | null;
+    literatureIds?: string[]; // References to literature items by ID
 }

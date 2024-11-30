@@ -3,7 +3,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import CategoryForm from '@/app/components/CategoryForm';
 import TreeView from '@/app/components/TreeView';
 import { Category } from '@/app/models/Category';
 import debounce from 'lodash/debounce';
@@ -74,12 +73,7 @@ const CategoryPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center space-y-8">
-            <CategoryForm
-                onSubmit={handleCategorySubmit}
-                categories={categories}
-                parentCategoryId={selectedParentId}
-            />
+        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center space-y-8 w-full">
             <TreeView
                 categories={categories}
                 onCategoryClick={handleCategoryClick}
