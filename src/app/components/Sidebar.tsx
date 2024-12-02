@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { Literature } from '@/app/models/Literature';
-import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebaseConfig';
 
 interface SidebarProps {
@@ -26,7 +26,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         author: '',
         date: '',
         url: '',
+        note: '',
     });
+
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+    const [noteInput, setNoteInput] = useState<string>('');
 
     const handleInputChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -40,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             const literatureCollection = collection(db, 'literature');
             await addDoc(literatureCollection, newLiterature);
             refreshLiteratureList(); // Refresh the literature list
-            setNewLiterature({ title: '', author: '', date: '', url: '' });
+            setNewLiterature({ title: '', author: '', date: '', url: '', note: '' });
         } catch (error) {
             console.error('Error adding literature:', error);
         }
@@ -55,6 +59,28 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
     };
 
+    const handleEditNote = (literature: Literature) => {
+        setEditingNoteId(literature.id);
+        setNoteInput(literature.note || '');
+    };
+
+    const handleSaveNote = async (literatureId: string) => {
+        try {
+            const literatureRef = doc(db, 'literature', literatureId);
+            await updateDoc(literatureRef, { note: noteInput });
+            refreshLiteratureList();
+            setEditingNoteId(null);
+            setNoteInput('');
+        } catch (error) {
+            console.error('Error updating note:', error);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingNoteId(null);
+        setNoteInput('');
+    };
+
     return (
         <>
             {/* Sidebar */}
@@ -66,38 +92,59 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="p-4">
                     <h3 className="text-lg font-semibold mb-4">Literature</h3>
 
-                    {/* Literature Table */}
+                    {/* Literature List */}
                     {literatureList.length > 0 ? (
-                        <table className="min-w-full border text-sm">
-                            <thead>
-                            <tr>
-                                <th className="px-2 py-1 border">Title</th>
-                                <th className="px-2 py-1 border">Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody>
+                        <ul>
                             {literatureList.map((lit) => (
-                                <tr
-                                    key={lit.id}
-                                    className="cursor-pointer hover:bg-gray-200"
-                                    onClick={() => onSelectLiterature(lit)}
-                                >
-                                    <td className="px-2 py-1 border">{lit.title}</td>
-                                    <td className="px-2 py-1 border">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                deleteLiteratureItem(lit.id);
-                                            }}
-                                            className="text-red-500 hover:text-red-700"
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
+                                <li key={lit.id} className="mb-2">
+                                    <div
+                                        className="cursor-pointer hover:bg-gray-200 p-2 rounded"
+                                        onClick={() => handleEditNote(lit)}
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <span>{lit.title}</span>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    deleteLiteratureItem(lit.id);
+                                                }}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                        {editingNoteId === lit.id ? (
+                                            <div className="mt-2">
+                                                <textarea
+                                                    value={noteInput}
+                                                    onChange={(e) => setNoteInput(e.target.value)}
+                                                    className="border p-2 rounded w-full"
+                                                    rows={3}
+                                                />
+                                                <div className="flex justify-end mt-1">
+                                                    <button
+                                                        onClick={() => handleSaveNote(lit.id)}
+                                                        className="bg-blue-500 text-white px-2 py-1 rounded mr-2"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEdit}
+                                                        className="bg-gray-500 text-white px-2 py-1 rounded"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="mt-1">
+                                                <p className="text-sm">{lit.note || 'No note'}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </li>
                             ))}
-                            </tbody>
-                        </table>
+                        </ul>
                     ) : (
                         <p>No literature available.</p>
                     )}
@@ -145,6 +192,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                             className="border p-2 rounded w-full mb-2"
                             placeholder="URL"
                             required
+                        />
+                        <textarea
+                            name="note"
+                            value={newLiterature.note}
+                            onChange={handleInputChange}
+                            className="border p-2 rounded w-full mb-2"
+                            placeholder="Note"
+                            rows={3}
                         />
                         <button
                             onClick={addLiterature}

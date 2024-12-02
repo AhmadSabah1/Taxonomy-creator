@@ -5,4 +5,5 @@ export interface Literature {
     author?: string;
     date?: string;
     url: string;
+    note?: string; // Optional field for a note
 }
