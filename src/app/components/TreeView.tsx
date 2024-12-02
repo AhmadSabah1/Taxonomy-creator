@@ -470,6 +470,32 @@ const TreeView: React.FC<TreeViewProps> = ({
         }
     };
 
+    const updateCategoryDescription = async (id: string, description: string) => {
+        console.log(id, description)
+        const category = findCategoryById(categories, id);
+        if (!category) {
+            console.warn(`Category not found: ${id}`);
+            return;
+        }
+
+        const updatedCategory: Category = { ...category, description };
+
+        // Update local tree state
+        const updatedCategories = updateCategoryInTree(categories, updatedCategory);
+        setCategories(updatedCategories);
+        console.log('Updated categories:', updatedCategories);
+
+        // Update Firestore
+        try {
+            const docRef = doc(db, 'categories', id);
+            console.log('Updating Firestore:', updatedCategory); // Debugging
+            await setDoc(docRef, updatedCategory);
+            console.log('Description updated in Firestore');
+        } catch (error) {
+            console.error('Error updating Firestore:', error instanceof Error ? error.message : error);
+        }
+    };
+
     // Conditionally render the "Create a New Category" interface when tree is empty
     if (!treeData || treeData.length === 0) {
         return (
@@ -608,6 +634,7 @@ const TreeView: React.FC<TreeViewProps> = ({
                     detachLiteratureFromCategory={detachLiteratureFromCategory}
                     updateCategoryColor={handleUpdateCategoryColor}
                     literatureList={literatureList}
+                    updateCategoryDescription={updateCategoryDescription}
                 />
                 <AddCategoryModal
                     isVisible={addCategoryModalVisible}

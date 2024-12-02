@@ -1,7 +1,6 @@
-// components/Modal.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import { Category } from '@/app/models/Category';
 import { Literature } from '@/app/models/Literature';
@@ -11,10 +10,9 @@ interface ModalProps {
     isVisible: boolean;
     onClose: () => void;
     category: Category | null;
-    description: string;
     attachLiteratureToCategory: (literatureId: string) => void;
     deleteCategory: () => void;
-    categories: Category[];
+    updateCategoryDescription: (id:string, description: string) => void;
     updateCategoryColor: (color: string) => void;
     detachLiteratureFromCategory: (literatureId: string) => void;
     literatureList: Literature[];
@@ -24,15 +22,23 @@ const Modal: React.FC<ModalProps> = ({
                                          isVisible,
                                          onClose,
                                          category,
-                                         description,
                                          attachLiteratureToCategory,
                                          deleteCategory,
+                                         updateCategoryDescription,
                                          updateCategoryColor,
                                          detachLiteratureFromCategory,
                                          literatureList,
                                      }) => {
     const [selectedLiteratureId, setSelectedLiteratureId] = useState<string>('');
     const [color, setColor] = useState<string>(category?.color || '#ff6347');
+    const [description, setDescription] = useState<string>(category?.description || '');
+
+    useEffect(() => {
+        if (category) {
+            setColor(category.color || '#ff6347');
+            setDescription(category.description || '');
+        }
+    }, [category]);
 
     if (!isVisible || !category) {
         return null;
@@ -49,6 +55,10 @@ const Modal: React.FC<ModalProps> = ({
         const selectedColor = colorResult.hex;
         setColor(selectedColor);
         updateCategoryColor(selectedColor);
+    };
+
+    const handleSaveDescription = () => {
+        updateCategoryDescription(category.id, description);
     };
 
     // Options for the literature select dropdown
@@ -71,7 +81,23 @@ const Modal: React.FC<ModalProps> = ({
                 {/* Left Side */}
                 <div className="w-1/2 p-6 overflow-y-auto">
                     <h3 className="text-lg font-semibold mb-4">Category: {category.name}</h3>
-                    <p className="text-gray-700 mb-6">{description}</p>
+
+                    {/* Editable Description */}
+                    <div className="mb-4">
+                        <h4 className="text-md font-semibold">Description</h4>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="border p-2 rounded w-full"
+                            rows={4}
+                        />
+                        <button
+                            onClick={handleSaveDescription}
+                            className="bg-blue-500 text-white px-4 py-2 rounded mt-2"
+                        >
+                            Save Description
+                        </button>
+                    </div>
 
                     {/* Color Picker */}
                     <div className="mb-4">
