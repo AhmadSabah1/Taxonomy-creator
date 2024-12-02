@@ -3,7 +3,13 @@
 
 import React, { useState } from 'react';
 import { Literature } from '@/app/models/Literature';
-import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import {
+    collection,
+    addDoc,
+    deleteDoc,
+    doc,
+    updateDoc,
+} from 'firebase/firestore';
 import { db } from '../../../firebaseConfig';
 
 interface SidebarProps {
@@ -11,7 +17,6 @@ interface SidebarProps {
     refreshLiteratureList: () => void;
     literatureList: Literature[];
     sidebarOpen: boolean;
-    setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -19,7 +24,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                              refreshLiteratureList,
                                              literatureList,
                                              sidebarOpen,
-                                             setSidebarOpen,
                                          }) => {
     const [newLiterature, setNewLiterature] = useState<Omit<Literature, 'id'>>({
         title: '',
@@ -42,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const addLiterature = async () => {
         try {
             const literatureCollection = collection(db, 'literature');
+            //@ts-ignore
             await addDoc(literatureCollection, newLiterature);
             refreshLiteratureList(); // Refresh the literature list
             setNewLiterature({ title: '', author: '', date: '', url: '', note: '' });
@@ -67,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const handleSaveNote = async (literatureId: string) => {
         try {
             const literatureRef = doc(db, 'literature', literatureId);
+            //@ts-ignore
             await updateDoc(literatureRef, { note: noteInput });
             refreshLiteratureList();
             setEditingNoteId(null);
@@ -99,28 +105,39 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <li key={lit.id} className="mb-2">
                                     <div
                                         className="cursor-pointer hover:bg-gray-200 p-2 rounded"
-                                        onClick={() => handleEditNote(lit)}
+                                        onClick={() => onSelectLiterature(lit)}
                                     >
                                         <div className="flex justify-between items-center">
                                             <span>{lit.title}</span>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    deleteLiteratureItem(lit.id);
-                                                }}
-                                                className="text-red-500 hover:text-red-700"
-                                            >
-                                                Delete
-                                            </button>
+                                            <div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEditNote(lit);
+                                                    }}
+                                                    className="text-green-500 hover:text-green-700 mr-2"
+                                                >
+                                                    Edit Note
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteLiteratureItem(lit.id);
+                                                    }}
+                                                    className="text-red-500 hover:text-red-700"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </div>
                                         {editingNoteId === lit.id ? (
                                             <div className="mt-2">
-                                                <textarea
-                                                    value={noteInput}
-                                                    onChange={(e) => setNoteInput(e.target.value)}
-                                                    className="border p-2 rounded w-full"
-                                                    rows={3}
-                                                />
+                        <textarea
+                            value={noteInput}
+                            onChange={(e) => setNoteInput(e.target.value)}
+                            className="border p-2 rounded w-full"
+                            rows={3}
+                        />
                                                 <div className="flex justify-end mt-1">
                                                     <button
                                                         onClick={() => handleSaveNote(lit.id)}
