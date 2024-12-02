@@ -46,6 +46,10 @@ const TreeView: React.FC<TreeViewProps> = ({
         useState<Literature | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
+    // New state variables for moving nodes
+    const [nodeToMove, setNodeToMove] = useState<any>(null);
+    const [moveMode, setMoveMode] = useState<boolean>(false);
+
     useEffect(() => {
         fetchLiterature();
     }, []);
@@ -71,13 +75,25 @@ const TreeView: React.FC<TreeViewProps> = ({
     const handleNodeClick = (nodeData: any) => {
         if (selectedLiteratureForAssignment) return;
 
-        const nodeId = nodeData.attributes?.id;
-
-        if (nodeId) {
-            setParentCategoryId(nodeId);
-            setAddCategoryModalVisible(true);
+        if (moveMode && nodeToMove) {
+            // Prevent moving a node under itself or its descendants
+            if (isDescendant(nodeToMove, nodeData)) {
+                alert('Cannot move a node under itself or its descendant.');
+                return;
+            }
+            // Perform the move
+            moveNodeToNewParent(nodeToMove, nodeData);
+            setNodeToMove(null);
+            setMoveMode(false);
         } else {
-            console.warn('Node clicked does not have a valid ID:', nodeData);
+            const nodeId = nodeData.attributes?.id;
+
+            if (nodeId) {
+                setParentCategoryId(nodeId);
+                setAddCategoryModalVisible(true);
+            } else {
+                console.warn('Node clicked does not have a valid ID:', nodeData);
+            }
         }
     };
 
@@ -475,6 +491,81 @@ const TreeView: React.FC<TreeViewProps> = ({
         return baseRadius + Math.min(text.length, 20) * 2 + padding;
     };
 
+    const isDescendant = (parentNode: any, childNode: any): boolean => {
+        if (parentNode.attributes.id === childNode.attributes.id) {
+            return true;
+        }
+        if (!parentNode.children) {
+            return false;
+        }
+        return parentNode.children.some((child: any) =>
+            isDescendant(child, childNode)
+        );
+    };
+
+    const moveNodeToNewParent = async (nodeToMoveData: any, newParentData: any) => {
+        const nodeId = nodeToMoveData.attributes.id;
+        const newParentId = newParentData.attributes.id;
+
+        // Remove node from its current location
+        let updatedCategories = removeCategoryFromTree(categories, nodeId);
+
+        // Find the node to move
+        const nodeToMoveCategory = findCategoryById(
+            [convertNodeDatumToCategory(nodeToMoveData)],
+            nodeId
+        );
+        if (!nodeToMoveCategory) {
+            console.error('Node to move not found.');
+            return;
+        }
+
+        // Add node under the new parent
+        updatedCategories = addSubcategory(
+            updatedCategories,
+            newParentId,
+            nodeToMoveCategory
+        );
+
+        setCategories(updatedCategories);
+
+        // Update in Firebase
+        try {
+            // Update the entire categories collection in Firebase
+            for (const category of updatedCategories) {
+                await updateCategoryInFirebase(category);
+            }
+        } catch (error) {
+            console.error('Error updating categories in Firebase:', error);
+        }
+    };
+
+    const updateCategoryInFirebase = async (category: Category) => {
+        const docRef = doc(db, 'categories', category.id);
+        await setDoc(docRef, category);
+
+        if (category.children && category.children.length > 0) {
+            for (const child of category.children) {
+                await updateCategoryInFirebase(child);
+            }
+        }
+    };
+
+    const convertNodeDatumToCategory = (nodeDatum: any): Category => {
+        return {
+            id: nodeDatum.attributes.id,
+            name: nodeDatum.name,
+            description: nodeDatum.attributes.description,
+            color: nodeDatum.color,
+            literatureIds: [], // Add any other properties as needed
+            children: nodeDatum.children
+                ? nodeDatum.children.map((child: any) =>
+                    convertNodeDatumToCategory(child)
+                )
+                : [],
+        };
+    };
+
     const renderCustomNodeElement = ({
                                          nodeDatum,
                                          toggleNode,
@@ -503,6 +594,9 @@ const TreeView: React.FC<TreeViewProps> = ({
             }
         }
 
+        const isNodeToMove =
+            nodeToMove && nodeToMove.attributes.id === nodeDatum.attributes.id;
+
         const handleClick = () => {
             if (!showCheckbox) handleNodeClick(nodeDatum);
         };
@@ -522,7 +616,17 @@ const TreeView: React.FC<TreeViewProps> = ({
             }
         };
 
-        const handleCheckboxChangeWrapper = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const handleMoveClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (!showCheckbox) {
+                setNodeToMove(nodeDatum);
+                setMoveMode(true);
+            }
+        };
+
+        const handleCheckboxChangeWrapper = (
+            e: React.ChangeEvent<HTMLInputElement>
+        ) => {
             e.stopPropagation();
             handleCheckboxChange(nodeDatum, e.target.checked);
         };
@@ -531,7 +635,7 @@ const TreeView: React.FC<TreeViewProps> = ({
             <g>
                 <circle
                     r={radius}
-                    fill={nodeDatum.color}
+                    fill={isNodeToMove ? 'yellow' : nodeDatum.color}
                     stroke="black"
                     strokeWidth="1"
                     onClick={handleClick}
@@ -596,7 +700,34 @@ const TreeView: React.FC<TreeViewProps> = ({
                                 </button>
                             </div>
                         </foreignObject>
+                        {!moveMode && (
+                            <foreignObject
+                                x={radius + 10}
+                                y="30"
+                                width="30"
+                                height="30"
+                                className="cursor-pointer"
+                                onClick={handleMoveClick}
+                            >
+                                <div>
+                                    <button className="bg-yellow-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                                        M
+                                    </button>
+                                </div>
+                            </foreignObject>
+                        )}
                     </>
+                )}
+                {moveMode && !isNodeToMove && (
+                    <text
+                        fill="red"
+                        x="0"
+                        y={radius + 20}
+                        textAnchor="middle"
+                        fontSize="10"
+                    >
+                        Click to move here
+                    </text>
                 )}
                 {isParent && (
                     <text
@@ -693,6 +824,20 @@ const TreeView: React.FC<TreeViewProps> = ({
                             className="bg-gray-500 text-white px-4 py-2 rounded"
                         >
                             Done
+                        </button>
+                    </div>
+                )}
+
+                {moveMode && (
+                    <div className="absolute top-0 left-0 m-4">
+                        <button
+                            onClick={() => {
+                                setMoveMode(false);
+                                setNodeToMove(null);
+                            }}
+                            className="bg-red-500 text-white px-4 py-2 rounded"
+                        >
+                            Cancel Move
                         </button>
                     </div>
                 )}
