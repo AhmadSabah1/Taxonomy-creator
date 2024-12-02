@@ -21,6 +21,7 @@
     "react-d3-tree": "^3.6.2",
     "react-dom": "^18",
     "react-select": "^5.8.3",
+    "react-tooltip": "^5.28.0",
     "react-tree-graph": "^8.0.2",
     "uuid": "^11.0.3",
     "xlsx": "^0.18.5"
