@@ -1,8 +1,8 @@
 // components/Sidebar.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { Literature } from '@/app/models/Literature';
+import React, {useState} from 'react';
+import {Literature} from '@/app/models/Literature';
 import {
     collection,
     addDoc,
@@ -10,18 +10,17 @@ import {
     doc,
     updateDoc,
 } from 'firebase/firestore';
-import { db } from '../../../firebaseConfig';
+import {db} from '../../../firebaseConfig';
+import {addNewLiterature} from "@/utils/firebaseUtils";
 
 interface SidebarProps {
     onSelectLiterature: (literature: Literature | null) => void;
-    refreshLiteratureList: () => void;
     literatureList: Literature[];
     sidebarOpen: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
                                              onSelectLiterature,
-                                             refreshLiteratureList,
                                              literatureList,
                                              sidebarOpen,
                                          }) => {
@@ -31,6 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         date: '',
         url: '',
         note: '',
+        sortOrder: undefined
     });
 
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -39,17 +39,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     const handleInputChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
     ) => {
-        const { name, value } = e.target;
-        setNewLiterature((prev) => ({ ...prev, [name]: value }));
+        const {name, value} = e.target;
+        setNewLiterature((prev) => ({...prev, [name]: value}));
     };
 
     const addLiterature = async () => {
         try {
-            const literatureCollection = collection(db, 'literature');
-            //@ts-ignore
-            await addDoc(literatureCollection, newLiterature);
-            refreshLiteratureList(); // Refresh the literature list
-            setNewLiterature({ title: '', author: '', date: '', url: '', note: '' });
+            addNewLiterature(newLiterature);
+            setNewLiterature({title: '', author: '', date: '', url: '', note: '', sortOrder: undefined});
         } catch (error) {
             console.error('Error adding literature:', error);
         }
@@ -58,7 +55,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     const deleteLiteratureItem = async (literatureId: string) => {
         try {
             await deleteDoc(doc(db, 'literature', literatureId));
-            refreshLiteratureList(); // Refresh the literature list
         } catch (error) {
             console.error('Error deleting literature:', error);
         }
@@ -73,8 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         try {
             const literatureRef = doc(db, 'literature', literatureId);
             //@ts-ignore
-            await updateDoc(literatureRef, { note: noteInput });
-            refreshLiteratureList();
+            await updateDoc(literatureRef, {note: noteInput});
             setEditingNoteId(null);
             setNoteInput('');
         } catch (error) {
@@ -97,7 +92,66 @@ const Sidebar: React.FC<SidebarProps> = ({
             >
                 <div className="p-4">
                     <h3 className="text-lg font-semibold mb-4">Literature</h3>
+                    {/* Deselect Literature */}
+                    <button
+                        onClick={() => onSelectLiterature(null)}
+                        className="bg-gray-500 text-white px-4 py-2 rounded mt-4 w-full"
+                    >
+                        Deselect Literature
+                    </button>
 
+                    {/* Add New Literature */}
+                    <div className="mt-6">
+                        <h4 className="text-md font-semibold mb-2">Add New Literature</h4>
+                        <input
+                            type="text"
+                            name="title"
+                            value={newLiterature.title}
+                            onChange={handleInputChange}
+                            className="border p-2 rounded w-full mb-2"
+                            placeholder="Title"
+                            required
+                        />
+                        <input
+                            type="text"
+                            name="author"
+                            value={newLiterature.author}
+                            onChange={handleInputChange}
+                            className="border p-2 rounded w-full mb-2"
+                            placeholder="Author"
+                        />
+                        <input
+                            type="date"
+                            name="date"
+                            value={newLiterature.date}
+                            onChange={handleInputChange}
+                            className="border p-2 rounded w-full mb-2"
+                        />
+                        <input
+                            type="url"
+                            name="url"
+                            value={newLiterature.url}
+                            onChange={handleInputChange}
+                            className="border p-2 rounded w-full mb-2"
+                            placeholder="URL"
+                            required
+                        />
+                        <textarea
+                            name="note"
+                            value={newLiterature.note}
+                            onChange={handleInputChange}
+                            className="border p-2 rounded w-full mb-2"
+                            placeholder="Note"
+                            rows={3}
+                        />
+                        <button
+                            onClick={addLiterature}
+                            className="bg-blue-500 text-white px-4 py-2 rounded w-full"
+                            disabled={!newLiterature.title || !newLiterature.url}
+                        >
+                            Add Literature
+                        </button>
+                    </div>
                     {/* Literature List */}
                     {literatureList.length > 0 ? (
                         <ul>
@@ -165,67 +219,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     ) : (
                         <p>No literature available.</p>
                     )}
-
-                    {/* Deselect Literature */}
-                    <button
-                        onClick={() => onSelectLiterature(null)}
-                        className="bg-gray-500 text-white px-4 py-2 rounded mt-4 w-full"
-                    >
-                        Deselect Literature
-                    </button>
-
-                    {/* Add New Literature */}
-                    <div className="mt-6">
-                        <h4 className="text-md font-semibold mb-2">Add New Literature</h4>
-                        <input
-                            type="text"
-                            name="title"
-                            value={newLiterature.title}
-                            onChange={handleInputChange}
-                            className="border p-2 rounded w-full mb-2"
-                            placeholder="Title"
-                            required
-                        />
-                        <input
-                            type="text"
-                            name="author"
-                            value={newLiterature.author}
-                            onChange={handleInputChange}
-                            className="border p-2 rounded w-full mb-2"
-                            placeholder="Author"
-                        />
-                        <input
-                            type="date"
-                            name="date"
-                            value={newLiterature.date}
-                            onChange={handleInputChange}
-                            className="border p-2 rounded w-full mb-2"
-                        />
-                        <input
-                            type="url"
-                            name="url"
-                            value={newLiterature.url}
-                            onChange={handleInputChange}
-                            className="border p-2 rounded w-full mb-2"
-                            placeholder="URL"
-                            required
-                        />
-                        <textarea
-                            name="note"
-                            value={newLiterature.note}
-                            onChange={handleInputChange}
-                            className="border p-2 rounded w-full mb-2"
-                            placeholder="Note"
-                            rows={3}
-                        />
-                        <button
-                            onClick={addLiterature}
-                            className="bg-blue-500 text-white px-4 py-2 rounded w-full"
-                            disabled={!newLiterature.title || !newLiterature.url}
-                        >
-                            Add Literature
-                        </button>
-                    </div>
                 </div>
             </div>
         </>

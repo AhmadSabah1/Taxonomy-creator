@@ -1,15 +1,15 @@
 // components/TreeView.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import Tree from 'react-d3-tree';
 import Modal from './Modal';
 import AddCategoryModal from './AddCategoryModal';
 import Sidebar from './Sidebar';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faInfoCircle, faBars } from '@fortawesome/free-solid-svg-icons';
-import { Category } from '@/app/models/Category';
-import { Literature } from '@/app/models/Literature';
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
+import {faInfoCircle, faBars} from '@fortawesome/free-solid-svg-icons';
+import {Category} from '@/app/models/Category';
+import {Literature} from '@/app/models/Literature';
 import {
     deleteDoc,
     doc,
@@ -17,9 +17,10 @@ import {
     collection,
     setDoc,
 } from 'firebase/firestore';
-import { db } from '../../../firebaseConfig';
+import {db} from '../../../firebaseConfig';
 import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
+import {saveAs} from 'file-saver';
+import {subscribeToCategories, subscribeToLiterature} from "@/utils/firebaseUtils";
 
 interface TreeViewProps {
     categories: Category[];
@@ -51,7 +52,13 @@ const TreeView: React.FC<TreeViewProps> = ({
     const [moveMode, setMoveMode] = useState<boolean>(false);
 
     useEffect(() => {
-        fetchLiterature();
+        const unsubscribe = subscribeToCategories(setCategories);
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        const unsubscribe = subscribeToLiterature(setLiteratureList);
+        return () => unsubscribe();
     }, []);
 
     const fetchLiterature = async () => {
@@ -66,10 +73,6 @@ const TreeView: React.FC<TreeViewProps> = ({
         } catch (error) {
             console.error('Error fetching literature:', error);
         }
-    };
-
-    const refreshLiteratureList = () => {
-        fetchLiterature();
     };
 
     const handleNodeClick = (nodeData: any) => {
@@ -141,7 +144,7 @@ const TreeView: React.FC<TreeViewProps> = ({
             type: 'array',
         });
 
-        const data = new Blob([excelBuffer], { type: 'application/octet-stream' });
+        const data = new Blob([excelBuffer], {type: 'application/octet-stream'});
         saveAs(data, 'categories_tree.xlsx');
     };
 
@@ -469,7 +472,7 @@ const TreeView: React.FC<TreeViewProps> = ({
             return;
         }
 
-        const updatedCategory: Category = { ...category, description };
+        const updatedCategory: Category = {...category, description};
 
         const updatedCategories = updateCategoryInTree(categories, updatedCategory);
         setCategories(updatedCategories);
@@ -695,7 +698,8 @@ const TreeView: React.FC<TreeViewProps> = ({
                             onClick={handleAddSubcategoryClick}
                         >
                             <div>
-                                <button className="bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                                <button
+                                    className="bg-green-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
                                     +
                                 </button>
                             </div>
@@ -710,7 +714,8 @@ const TreeView: React.FC<TreeViewProps> = ({
                                 onClick={handleMoveClick}
                             >
                                 <div>
-                                    <button className="bg-yellow-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                                    <button
+                                        className="bg-yellow-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
                                         M
                                     </button>
                                 </div>
@@ -777,7 +782,6 @@ const TreeView: React.FC<TreeViewProps> = ({
             <div className="bg-white w-fit">
                 <Sidebar
                     onSelectLiterature={handleSelectLiterature}
-                    refreshLiteratureList={refreshLiteratureList}
                     literatureList={literatureList}
                     sidebarOpen={sidebarOpen}
                 />
@@ -790,7 +794,7 @@ const TreeView: React.FC<TreeViewProps> = ({
                     }}
                     aria-label="Toggle Sidebar"
                 >
-                    <FontAwesomeIcon icon={faBars} size="lg" />
+                    <FontAwesomeIcon icon={faBars} size="lg"/>
                 </button>
             </div>
             <div
@@ -812,7 +816,7 @@ const TreeView: React.FC<TreeViewProps> = ({
                 <Tree
                     data={treeData}
                     orientation="vertical"
-                    translate={{ x: 500, y: 50 }}
+                    translate={{x: 500, y: 50}}
                     renderCustomNodeElement={renderCustomNodeElement}
                     collapsible={true}
                 />

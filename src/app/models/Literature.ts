@@ -6,4 +6,5 @@ export interface Literature {
     date?: string;
     url: string;
     note?: string; // Optional field for a note
+    sortOrder: number | undefined;
 }
